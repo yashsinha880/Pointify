@@ -46,8 +46,8 @@ wss.on('connection', (ws: WebSocket) => {
       const name = msg.name as string
       clients.set(ws, { id, name })
 
-      // Assign host if none
-      if (!hostId) {
+      // Assign host if none OR stale (host not among connected clients)
+      if (!hostId || !Array.from(clients.values()).some((p) => p.id === hostId)) {
         hostId = id
       }
 
@@ -85,8 +85,24 @@ wss.on('connection', (ws: WebSocket) => {
     if (msg.type === 'leave') {
       const existing = clients.get(ws)
       const id = (existing?.id ?? msg.id) as string
+      // Remove vote if any
+      if (id) delete votes[id]
+      // Remove from clients and notify others
       clients.delete(ws)
       broadcast(ws, { type: 'leave', id })
+      // Reassign host if needed
+      if (hostId === id) {
+        const next = clients.values().next().value as ClientMeta | undefined
+        hostId = next ? next.id : null
+        broadcastAll({ type: 'host', hostId })
+      }
+      // If room is now empty, reset board state
+      if (clients.size === 0) {
+        hostId = null
+        currentTicket = ''
+        revealed = false
+        for (const key of Object.keys(votes)) delete votes[key]
+      }
       try {
         ws.close()
       } catch {}
@@ -146,14 +162,13 @@ wss.on('connection', (ws: WebSocket) => {
         hostId = next ? next.id : null
         broadcastAll({ type: 'host', hostId })
       }
-
-      // If room is now empty, reset board state
-      if (clients.size === 0) {
-        hostId = null
-        currentTicket = ''
-        revealed = false
-        for (const key of Object.keys(votes)) delete votes[key]
-      }
+    }
+    // If room is now empty, reset board state (handle both meta and non-meta paths)
+    if (clients.size === 0) {
+      hostId = null
+      currentTicket = ''
+      revealed = false
+      for (const key of Object.keys(votes)) delete votes[key]
     }
   })
 })

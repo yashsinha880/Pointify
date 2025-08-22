@@ -42,33 +42,7 @@ const Hero: React.FC = () => {
                 )}
               </button>
             </div>
-
-            <div className="hidden md:block">
-              <a
-                href="#"
-                title=""
-                className="inline-flex items-center justify-center px-6 py-2 sm:py-2.5 text-base font-semibold text-white transition-all duration-200 bg-gray-900 rounded-lg sm:text-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
-                role="button"
-              >
-                Join Email List
-              </a>
-            </div>
           </nav>
-
-          {expanded && (
-            <div className="px-1 pt-8 pb-4 md:hidden">
-              <div className="grid gap-y-6">
-                <a
-                  href="#"
-                  title=""
-                  className="inline-flex items-center justify-center px-6 py-2 text-base font-semibold leading-7 text-white transition-all duration-200 bg-gray-900 border border-transparent rounded-lg hover:bg-gray-600 font-pj focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
-                  role="button"
-                >
-                  Join Email List
-                </a>
-              </div>
-            </div>
-          )}
         </div>
       </header>
 
@@ -98,6 +72,8 @@ const Hero: React.FC = () => {
                     type="text"
                     name="name"
                     id="name"
+                    autoFocus={true}
+                    autoComplete="off"
                     className="block w-full px-4 py-3 sm:py-3.5 text-base font-medium text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg sm:text-sm focus:ring-gray-900 focus:border-gray-900"
                     placeholder="Name"
                     value={name}

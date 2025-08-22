@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { nanoid } from 'nanoid'
+import VoteChart from '../components/VoteChart'
 
 type RemoteCursor = {
   id: string
@@ -20,8 +21,8 @@ const Pool: React.FC = () => {
   const shouldReconnectRef = useRef(true)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [remotes, setRemotes] = useState<Record<string, RemoteCursor>>({})
-  // Chat states (kept for potential future use)
-  const [messages, setMessages] = useState<{ id: string; name: string; text: string; ts: number }[]>([])
+  // Chat state setter (value is not read in UI yet)
+  const [, setMessages] = useState<{ id: string; name: string; text: string; ts: number }[]>([])
   const seenMessagesRef = useRef<Set<string>>(new Set())
   const [connected, setConnected] = useState(false)
   // Planning poker states
@@ -30,6 +31,7 @@ const Pool: React.FC = () => {
   const [revealed, setRevealed] = useState(false)
   const [participants, setParticipants] = useState<Record<string, string>>({})
   const [hostId, setHostId] = useState<string | null>(null)
+  const [hostTransferTarget, setHostTransferTarget] = useState<string>('')
 
   useEffect(() => {
     let stopped = false
@@ -171,6 +173,22 @@ const Pool: React.FC = () => {
 
   const isHost = hostId === id
 
+  useEffect(() => {
+    // Keep a sane default candidate when you are host
+    if (!isHost) {
+      setHostTransferTarget('')
+      return
+    }
+    const candidates = Object.keys(participants).filter((pid) => pid !== id)
+    if (candidates.length === 0) {
+      setHostTransferTarget('')
+      return
+    }
+    if (!candidates.includes(hostTransferTarget)) {
+      setHostTransferTarget(candidates[0])
+    }
+  }, [participants, isHost, id])
+
   return (
     <section ref={containerRef} className="relative min-h-screen py-12 bg-white sm:py-16 lg:py-20">
       <div className="absolute inset-0">
@@ -212,13 +230,14 @@ const Pool: React.FC = () => {
                 onChange={(e) => setTicket(e.target.value)}
                 placeholder="Ticket title or JIRA key..."
                 disabled={!isHost}
+                autoFocus={true}
                 readOnly={!isHost}
                 className={
                   (isHost ? '' : 'bg-gray-100 cursor-not-allowed ') +
                   'block w-full sm:max-w-md px-4 py-3 text-base text-gray-900 placeholder-gray-500 border border-gray-300 rounded-xl sm:text-sm focus:ring-gray-900 focus:border-gray-900'
                 }
               />
-              <div className="flex items-center gap-3 mt-3 sm:mt-0">
+              <div className="flex items-center gap-3 ml-5 mt-3 sm:mt-0">
                 <button
                   onClick={() => wsRef.current?.send(JSON.stringify({ type: 'ticket', id, title: ticket }))}
                   className={(isHost ? 'bg-gray-900 hover:bg-gray-700 ' : 'bg-gray-300 cursor-not-allowed ') + 'px-4 py-2 text-sm font-semibold text-white rounded-lg'}
@@ -264,8 +283,30 @@ const Pool: React.FC = () => {
             <div className="mt-8">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-500">Participants</h3>
-                {hostId === id && (
-                  <div className="text-xs text-gray-500">You are the host</div>
+                {isHost ? (
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs text-gray-500">You are the host</div>
+                    <select
+                      value={hostTransferTarget}
+                      onChange={(e) => setHostTransferTarget(e.target.value)}
+                      className="text-xs px-2 py-1 border border-gray-300 rounded-md bg-white text-gray-700"
+                    >
+                      {Object.entries(participants)
+                        .filter(([pid]) => pid !== id)
+                        .map(([pid, pname]) => (
+                          <option key={pid} value={pid}>{pname}</option>
+                        ))}
+                    </select>
+                    <button
+                      onClick={() => hostTransferTarget && wsRef.current?.send(JSON.stringify({ type: 'host', id, targetId: hostTransferTarget }))}
+                      disabled={!hostTransferTarget}
+                      className={(hostTransferTarget ? 'bg-gray-900 hover:bg-gray-700 ' : 'bg-gray-300 cursor-not-allowed ') + 'text-white text-xs font-semibold px-3 py-1 rounded-md'}
+                    >
+                      Make host
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-500">Host: {hostId ? (participants[hostId] || '—') : '—'}</div>
                 )}
               </div>
               <ul className="grid grid-cols-2 gap-3 mt-3 sm:grid-cols-3">
@@ -275,13 +316,19 @@ const Pool: React.FC = () => {
                     <li key={pid} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
                       <span className="text-sm font-medium text-gray-900">{pname}{hostId === pid ? ' (Host)' : ''}</span>
                       <span className="text-sm font-semibold text-gray-700">
-                        {revealed ? (vote ?? '—') : (vote != null ? 'Voted' : '—')}
+                        {vote != null ? 'Voted' : '—'}
                       </span>
                     </li>
                   )
                 })}
               </ul>
             </div>
+
+            <VoteChart
+              votes={votes}
+              revealed={revealed}
+              participantCount={Object.keys(participants).length}
+            />
           </div>
         </div>
       </div>
