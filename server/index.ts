@@ -1,10 +1,23 @@
 /* eslint-disable no-console */
 import { WebSocketServer, WebSocket } from 'ws'
+import { createServer } from 'node:http'
 
 type ClientMeta = { id: string; name: string }
 
 const PORT = Number(process.env.PORT || 3001)
-const wss = new WebSocketServer({ port: PORT })
+const server = createServer((req, res) => {
+  if (!req || !res) return
+  if (req.url === '/healthz') {
+    res.statusCode = 200
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+    res.end('ok')
+    return
+  }
+  res.statusCode = 200
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+  res.end('OK')
+})
+const wss = new WebSocketServer({ server })
 
 const clients = new Map<WebSocket, ClientMeta>()
 let hostId: string | null = null
@@ -173,6 +186,8 @@ wss.on('connection', (ws: WebSocket) => {
   })
 })
 
-console.log(`[ws] Cursor server listening on ws://localhost:${PORT}`)
+server.listen(PORT, () => {
+  console.log(`[ws] Cursor server listening on ws://localhost:${PORT}`)
+})
 
 
